@@ -15,18 +15,13 @@ export class TarefaService {
     @InjectRepository(Tarefa)
     private tarefaRepository: Repository<Tarefa>,
   ) {}
-  private async toTarefaComponente(
-    tarefa: Tarefa,
-    manager: EntityManager,
-  ): Promise<TarefaComponente> {
+  private toTarefaComponente(tarefa: Tarefa): TarefaComponente {
     if (!tarefa.subTarefas || tarefa.subTarefas.length === 0) {
       return new TarefaFolha(tarefa);
     }
 
-    const subTarefas = await Promise.all(
-      tarefa.subTarefas.map((subTarefa) =>
-        this.toTarefaComponente(subTarefa, manager),
-      ),
+    const subTarefas = tarefa.subTarefas.map((subTarefa) =>
+      this.toTarefaComponente(subTarefa),
     );
     return new TarefaComposta(tarefa, subTarefas);
   }
@@ -40,7 +35,7 @@ export class TarefaService {
           .where('tarefa.id = :id', { id: tarefaId })
           .getOneOrFail();
 
-        const tarefaComponente = await this.toTarefaComponente(tarefa, manager);
+        const tarefaComponente = this.toTarefaComponente(tarefa);
         await tarefaComponente.marcarComoCompleta(manager);
 
         if (tarefaComponente instanceof TarefaComposta) {
@@ -59,14 +54,10 @@ export class TarefaService {
       .where('tarefa.id = :id', { id: tarefaId })
       .getOneOrFail();
 
-    const tarefaComponente = await this.toTarefaComponente(
-      tarefa,
-      this.tarefaRepository.manager,
-    );
+    const tarefaComponente = this.toTarefaComponente(tarefa);
     return tarefaComponente.getProgresso();
   }
 
-  // Obtém estatísticas da tarefa
   async getEstatisticas(
     tarefaId: string,
   ): Promise<{ total: number; completed: number }> {
@@ -76,10 +67,7 @@ export class TarefaService {
       .where('tarefa.id = :id', { id: tarefaId })
       .getOneOrFail();
 
-    const tarefaComponente = await this.toTarefaComponente(
-      tarefa,
-      this.tarefaRepository.manager,
-    );
+    const tarefaComponente = this.toTarefaComponente(tarefa);
     return tarefaComponente.getEstatisticas();
   }
 
@@ -103,7 +91,7 @@ export class TarefaService {
           .where('tarefa.id = :id', { id: tarefaId })
           .getOneOrFail();
 
-        const tarefaComponente = await this.toTarefaComponente(tarefa, manager);
+        const tarefaComponente = this.toTarefaComponente(tarefa);
         const dadosAtualizados = {
           ...dados,
           prazo: dados.prazo ? new Date(dados.prazo) : undefined,

@@ -225,11 +225,11 @@ export class TarefaComposta extends TarefaBase {
   }
 
   getProgresso(): number {
-    const progressos = this.subTarefas.map((subTarefa) =>
-      subTarefa.getProgresso(),
-    );
-
-    return this.calcularMedia(progressos);
+    const totalSubTarefas = this.subTarefas.length;
+    const completedSubTarefas = this.subTarefas.filter(
+      (subTarefa) => subTarefa.getProgresso() === 100,
+    ).length;
+    return (completedSubTarefas / totalSubTarefas) * 100;
   }
 
   getTempoEstimado(): number {
