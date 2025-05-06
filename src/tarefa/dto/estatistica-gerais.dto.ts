@@ -16,4 +16,7 @@ export class EstatisticaGeraisDto {
 
   @Expose()
   limiteSubtarefas: number;
+
+  @Expose()
+  pontos: number;
 }

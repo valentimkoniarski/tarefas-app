@@ -38,6 +38,7 @@ export class TarefaService {
       .comPontos(dto.pontos)
       .comDataPrazo(dto.dataPrazo)
       .comTempoEstimadoDias(dto.tempoEstimadoDias)
+      .comTipoCalculoPontos(dto.tipoCalculoPontos)
       .build();
 
     return this.tarefaRepository.save(tarefaFolha);
@@ -87,6 +88,24 @@ export class TarefaService {
     return await this.tarefaRepository.save(folha);
   }
 
+  async iniciarTarefa(id: number): Promise<Tarefa> {
+    const tarefa = await this.tarefaRepository.findOneOrFail({
+      where: { id },
+      relations: ['tarefaPai', 'subtarefas', 'etapaSequencial'],
+    });
+    tarefa.iniciar();
+    return this.tarefaRepository.save(tarefa);
+  }
+
+  async concluirTarefa(id: number): Promise<Tarefa> {
+    const tarefa = await this.tarefaRepository.findOneOrFail({
+      where: { id },
+      relations: ['subtarefas', 'etapaSequencial'],
+    });
+    tarefa.concluir();
+    return this.tarefaRepository.save(tarefa);
+  }
+
   async clonarTarefa(origemId: number, dto: ClonarTarefaDto): Promise<Tarefa> {
     const raiz = await this.tarefaRepository.findDescendantsTree(
       await this.tarefaRepository.findOneOrFail({ where: { id: origemId } }),
@@ -129,39 +148,19 @@ export class TarefaService {
     return await this.tarefaRepository.remove(tarefa);
   }
 
-  async atualizarTarefa(
-    id: number,
-    updateTarefaDto: UpdateTarefaRequestDto,
-  ): Promise<Tarefa> {
+  async atualizarTarefa(id: number, dto: UpdateTarefaRequestDto): Promise<Tarefa> {
     const tarefa = await this.tarefaRepository.findOneOrFail({
       where: { id },
-      relations: ['tarefaPai', 'subtarefas'],
+      relations: ['tarefaPai', 'subtarefas', 'etapaSequencial'],
     });
-
-    Object.assign(tarefa, updateTarefaDto);
-
-    if (
-      updateTarefaDto.status === StatusTarefa.CONCLUIDA &&
-      !updateTarefaDto.dataConclusao
-    ) {
-      throw new BadRequestException(
-        'Data de conclusão é obrigatória quando o status é Concluída',
-      );
+    if (dto.status === StatusTarefa.EM_ANDAMENTO) {
+      tarefa.iniciar();
+    } else if (dto.status === StatusTarefa.CONCLUIDA) {
+      tarefa.concluir();
+    } else {
+      Object.assign(tarefa, dto);
     }
-
-    if (
-      (updateTarefaDto.status === StatusTarefa.EM_ANDAMENTO ||
-        updateTarefaDto.status === StatusTarefa.PENDENTE) &&
-      updateTarefaDto.dataConclusao
-    ) {
-      throw new BadRequestException(
-        'Não é permitido definir a data de conclusão para status "Em Andamento" ou "Pendente"',
-      );
-    }
-
-    await this.tarefaRepository.save(tarefa);
-
-    return tarefa;
+    return this.tarefaRepository.save(tarefa);
   }
 
   // Todo: Refatorar

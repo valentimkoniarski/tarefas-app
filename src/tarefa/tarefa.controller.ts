@@ -124,4 +124,18 @@ export class TarefaController {
   async getAll(@Query() paginationDto: PaginationDto) {
     return this.tarefaService.fetchTarefas(paginationDto);
   }
+
+  @Patch(':id/iniciar')
+  @HttpCode(HttpStatus.OK)
+  async iniciar(@Param('id', ParseIntPipe) id: number) {
+    const tarefa = await this.tarefaService.iniciarTarefa(id);
+    return new HttpResponse('Tarefa iniciada.', tarefa);
+  }
+
+  @Patch(':id/concluir')
+  @HttpCode(HttpStatus.OK)
+  async concluir(@Param('id', ParseIntPipe) id: number) {
+    const tarefa = await this.tarefaService.concluirTarefa(id);
+    return new HttpResponse('Tarefa concluída.', tarefa);
+  }
 }

@@ -16,6 +16,8 @@ import {
 } from '../dto/_index';
 import { TarefaFolha } from './tarefa.folha.entity';
 import { TarefaComposta } from './tarefa.composta.entity';
+import { TarefaPipeline } from './tarefa.pipeline.entity';
+import { EstatisticaTarefaPipelineDto } from '../dto/estatistica-tarefa-pipeline.dto';
 
 @Entity('tarefas')
 @TableInheritance({ column: { type: 'varchar', name: 'tipo' } })
@@ -53,11 +55,28 @@ export abstract class Tarefa {
 
   abstract getEstatistica():
     | EstatisticaTarefaFolhaDto
-    | EstatisticaTarefaCompostaDto;
+    | EstatisticaTarefaCompostaDto
+    | EstatisticaTarefaPipelineDto;
 
   abstract cloneComModificacoes(
     modificadores: ClonarTarefaDto,
-  ): TarefaFolha | TarefaComposta;
+  ): TarefaFolha | TarefaComposta | TarefaPipeline;
 
   abstract getProgresso(): number;
+
+  /**
+   * Diz se esta tarefa já pode ser iniciada (todos os pré-requisitos atendidos).
+   */
+  abstract podeIniciar(): boolean;
+
+  /**
+   * Executa a ação de iniciar a tarefa: tipicamente muda status e dispara efeitos colaterais.
+   */
+  abstract iniciar(): void;
+
+  /**
+   * Executa a ação de concluir a tarefa: valida pré-condições, seta dataConclusao e dispara efeitos.
+   */
+  abstract concluir(): void;
+
 }

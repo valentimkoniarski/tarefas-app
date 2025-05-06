@@ -5,6 +5,9 @@ import { Min } from 'class-validator';
 import { ProgressoTarefaBuilder } from '../builders/progresso-tarefa-clone.builder';
 import { TarefaFolhaBuilder } from '../builders/tarefa-folha-clone.builder';
 import { ClonarTarefaDto, EstatisticaTarefaFolhaDto } from '../dto/_index';
+import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
+import { PontosFolhaStrategyFactory, TipoCalculoPontosFolha } from '../factories/pontos-folha.strategy.factory';
+import { EstrategiaPontosFolha } from '../strategies/estrategia-pontos-folha.interface';
 @ChildEntity()
 export class TarefaFolha extends Tarefa {
   @Column({ nullable: true })
@@ -28,13 +31,33 @@ export class TarefaFolha extends Tarefa {
   @Min(0)
   tempoEstimadoDias: number;
 
+  @Column({
+    type: 'enum',
+    enum: TipoCalculoPontosFolha,
+    default: TipoCalculoPontosFolha.FIXO,
+  })
+  tipoCalculoPontos: TipoCalculoPontosFolha;
+
+  private estrategiaPontos: EstrategiaPontosFolha;
+
+  private initStrategy() {
+    this.estrategiaPontos = PontosFolhaStrategyFactory.getStrategy(
+      this.tipoCalculoPontos,
+    );
+  }
+
+  calcularPontos(): number {
+    this.initStrategy();
+    return this.estrategiaPontos.calcular(this);
+  }
+
   getEstatistica(): EstatisticaTarefaFolhaDto {
     return {
       id: this.id,
       titulo: this.titulo,
       status: this.status,
       progresso: this.getProgresso(),
-      pontos: this.pontos,
+      pontos: this.calcularPontos(),
       tempoEstimadoDias: this.tempoEstimadoDias ?? 0,
     };
   }
@@ -58,5 +81,27 @@ export class TarefaFolha extends Tarefa {
       .build();
 
     return copia;
+  }
+
+  podeIniciar(): boolean {
+    const paiConcluido =
+      !this.tarefaPai || this.tarefaPai.getProgresso() === 100;
+    return this.status === StatusTarefa.PENDENTE && paiConcluido;
+  }
+
+  iniciar(): void {
+    if (!this.podeIniciar()) {
+      throw new Error('Não é possível iniciar esta tarefa ainda');
+    }
+    this.status = StatusTarefa.EM_ANDAMENTO;
+  }
+
+  concluir(): void {
+    if (this.status !== StatusTarefa.EM_ANDAMENTO) {
+      throw new Error('Só é possível concluir uma tarefa em andamento');
+    }
+    this.status = StatusTarefa.CONCLUIDA;
+    this.dataConclusao = new Date();
+    this.concluida = true;
   }
 }

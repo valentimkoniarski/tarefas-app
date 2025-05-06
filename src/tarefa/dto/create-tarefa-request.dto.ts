@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { PrioridadeTarefa } from 'src/core/enums/prioridade.tarefa.enum';
 import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
+import { TipoCalculoPontosFolha } from '../factories/pontos-folha.strategy.factory';
 
 export class CreateTarefaFolhaDto {
   @IsString()
@@ -41,6 +42,9 @@ export class CreateTarefaFolhaDto {
   @Min(0)
   @IsPositive()
   tempoEstimadoDias: number;
+
+  @IsEnum(TipoCalculoPontosFolha)
+  tipoCalculoPontos: TipoCalculoPontosFolha;
 }
 
 export class CreateTarefaCompostaDto {

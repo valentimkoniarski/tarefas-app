@@ -5,6 +5,7 @@ import { ProgressoTarefaBuilder } from '../builders/progresso-tarefa-clone.build
 import { TarefaCompostaBuilder } from '../builders/tarefa-composta-clone.builder';
 import { TarefaFolha } from './tarefa.folha.entity';
 import { ClonarTarefaDto, EstatisticaTarefaCompostaDto } from '../dto/_index';
+import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
 
 @ChildEntity()
 export class TarefaComposta extends Tarefa {
@@ -57,4 +58,28 @@ export class TarefaComposta extends Tarefa {
 
     return builder.build();
   }
+
+  podeIniciar(): boolean {
+    if ((this.subtarefas?.length ?? 0) === 0) {
+      throw new Error('Tarefa composta deve possuir ao menos uma subtarefa para iniciar');
+    }
+    return true;
+  }
+  
+  iniciar(): void {
+    if (!this.podeIniciar()) {
+      throw new Error('Composta sem subtarefas não pode iniciar');
+    }
+    this.status = StatusTarefa.EM_ANDAMENTO;
+  }
+  
+  concluir(): void {
+    const todas = this.subtarefas ?? [];
+    if (todas.some(t => t.getProgresso() < 100)) {
+      throw new Error('Todas subtarefas devem estar concluídas para fechar a composta');
+    }
+    this.status = StatusTarefa.CONCLUIDA;
+    this.concluida = true;
+  }
+  
 }

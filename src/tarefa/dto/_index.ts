@@ -9,3 +9,4 @@ export * from './update-tarefa-response.dto';
 export * from './estatistica-tarefa-response.dto';
 export * from './estatistica-gerais.dto';
 
+export * from './estatistica-tarefa-pipeline.dto';

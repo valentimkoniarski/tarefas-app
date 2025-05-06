@@ -1,6 +1,7 @@
 import { PrioridadeTarefa } from 'src/core/enums/prioridade.tarefa.enum';
 import { TarefaFolha } from '../entities/tarefa.folha.entity';
 import { TarefaBuilder } from './tarefa-base-clone.builder';
+import { TipoCalculoPontosFolha } from '../factories/pontos-folha.strategy.factory';
 
 export class TarefaFolhaBuilder extends TarefaBuilder<TarefaFolha> {
   constructor(tarefa: TarefaFolha = new TarefaFolha()) {
@@ -29,6 +30,11 @@ export class TarefaFolhaBuilder extends TarefaBuilder<TarefaFolha> {
 
   comTarefaPai(tarefaPai: TarefaFolha): this {
     this.tarefa.tarefaPai = tarefaPai;
+    return this;
+  }
+
+  comTipoCalculoPontos(tipoCalculoPontos: TipoCalculoPontosFolha): this {
+    this.tarefa.tipoCalculoPontos = tipoCalculoPontos;
     return this;
   }
 
