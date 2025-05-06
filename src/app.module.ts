@@ -1,32 +1,26 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TarefaModule } from './tarefa/tarefa.module';
-import { UsuarioModule } from './usuario/usuario.module';
 
-import { Usuario } from './usuario/usuario.entity';
-import { Tarefa } from './tarefa/tarefa.entity';
-import { Comentario } from './comentario/comentario.entity';
-import { Historico } from './historico/entities/historico/historico';
-import { Etiqueta } from './etiqueta/entities/etiqueta/etiqueta';
-import { AutenticacaoModule } from './autenticacao/autenticacao.module';
-import { ComentarioModule } from './comentario/comentario.module';
+import { Tarefa } from './tarefa/entities/tarefa.entity';
+import { TarefaComposta } from './tarefa/entities/tarefa.composta.entity';
+import { TarefaFolha } from './tarefa/entities/tarefa.folha.entity';
+import { DataSource } from 'typeorm';
+
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  username: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASS || 'v123',
+  database: process.env.DB_NAME || 'postgres',
+  entities: [Tarefa, TarefaComposta, TarefaFolha],
+  synchronize: true,
+  //logging: process.env.NODE_ENV !== 'production',
+  //migrations: ['dist/migrations/*.js'],
+});
 
 @Module({
-  imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      port: parseInt('5432'),
-      username: 'postgres',
-      password: 'v123',
-      database: 'postgres',
-      entities: [Usuario, Comentario, Tarefa, Historico, Etiqueta, Comentario],
-      synchronize: true, // Apenas para dev
-    }),
-    TarefaModule,
-    UsuarioModule,
-    AutenticacaoModule,
-    ComentarioModule,
-  ],
+  imports: [TypeOrmModule.forRoot(AppDataSource.options), TarefaModule],
 })
 export class AppModule {}

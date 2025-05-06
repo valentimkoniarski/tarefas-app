@@ -1,135 +1,158 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
-import { CreateTarefaDto, UpdateTarefaDto } from './dto/_index';
 import {
-  Tarefa,
-  TarefaComponente,
-  TarefaComposta,
-  TarefaFolha,
-} from './tarefa.entity';
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TreeRepository } from 'typeorm';
+import { Tarefa } from './entities/tarefa.entity';
+import {
+  CreateTarefaCompostaDto,
+  CreateTarefaFolhaDto,
+} from './dto/requests/create-tarefa-request.dto';
+import { UpdateTarefaRequestDto } from './dto/requests/update-tarefa-request.dto';
+import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
+import { TarefaFolhaBuilder } from './builders/tarefa-folha-clone.builder';
+import { TarefaCompostaBuilder } from './builders/tarefa-composta-clone.builder';
+import { TarefaComposta } from './entities/tarefa.composta.entity';
+import { TarefaFolha } from './entities/tarefa.folha.entity';
+import { PaginationDto } from 'src/core/dto/pagination.dto';
+import { PaginationResponseDto } from 'src/core/dto/pagination-response.dto';
 
 @Injectable()
 export class TarefaService {
   constructor(
     @InjectRepository(Tarefa)
-    private tarefaRepository: Repository<Tarefa>,
+    private readonly tarefaRepository: TreeRepository<Tarefa>,
   ) {}
-  private toTarefaComponente(tarefa: Tarefa): TarefaComponente {
-    if (!tarefa.subTarefas || tarefa.subTarefas.length === 0) {
-      return new TarefaFolha(tarefa);
-    }
 
-    const subTarefas = tarefa.subTarefas.map((subTarefa) =>
-      this.toTarefaComponente(subTarefa),
-    );
-    return new TarefaComposta(tarefa, subTarefas);
+  async criarTarefaSimples(dto: CreateTarefaFolhaDto): Promise<Tarefa> {
+    const tarefaFolha = new TarefaFolhaBuilder()
+      .comTitulo(dto.titulo)
+      .comSubTitulo(dto.subTitulo)
+      .comDescricao(dto.descricao)
+      .comStatus(dto.status)
+      .comPrioridade(dto.prioridade)
+      .comPontos(dto.pontos)
+      .comDataPrazo(dto.dataPrazo)
+      .comTempoEstimadoDias(dto.tempoEstimadoDias)
+      .build();
+
+    return this.tarefaRepository.save(tarefaFolha);
   }
 
-  async marcarComoCompleta(tarefaId: string): Promise<void> {
-    await this.tarefaRepository.manager.transaction(
-      async (manager: EntityManager) => {
-        const tarefa = await manager
-          .createQueryBuilder(Tarefa, 'tarefa')
-          .leftJoinAndSelect('tarefa.subTarefas', 'subTarefas')
-          .where('tarefa.id = :id', { id: tarefaId })
-          .getOneOrFail();
+  async criarTarefaComposta(
+    dto: CreateTarefaCompostaDto,
+  ): Promise<TarefaComposta> {
+    const tarefa = new TarefaCompostaBuilder()
+      .comTitulo(dto.titulo)
+      .comSubTitulo(dto.subTitulo)
+      .comDataPrazo(dto.dataPrazo ? new Date(dto.dataPrazo) : undefined)
+      .build();
 
-        const tarefaComponente = this.toTarefaComponente(tarefa);
-        await tarefaComponente.marcarComoCompleta(manager);
-
-        if (tarefaComponente instanceof TarefaComposta) {
-          const subTarefas = tarefaComponente.getSubTarefas();
-
-          console.log('subTarefas', subTarefas);
-        }
-      },
-    );
-  }
-
-  async getProgresso(tarefaId: string): Promise<number> {
-    const tarefa = await this.tarefaRepository
-      .createQueryBuilder('tarefa')
-      .leftJoinAndSelect('tarefa.subTarefas', 'subTarefas')
-      .where('tarefa.id = :id', { id: tarefaId })
-      .getOneOrFail();
-
-    const tarefaComponente = this.toTarefaComponente(tarefa);
-    return tarefaComponente.getProgresso();
-  }
-
-  async getEstatisticas(
-    tarefaId: string,
-  ): Promise<{ total: number; completed: number }> {
-    const tarefa = await this.tarefaRepository
-      .createQueryBuilder('tarefa')
-      .leftJoinAndSelect('tarefa.subTarefas', 'subTarefas')
-      .where('tarefa.id = :id', { id: tarefaId })
-      .getOneOrFail();
-
-    const tarefaComponente = this.toTarefaComponente(tarefa);
-    return tarefaComponente.getEstatisticas();
-  }
-
-  findAll() {
-    return this.tarefaRepository.find({
-      relations: ['tarefaPai'],
-    });
-  }
-
-  async updateTarefa(
-    tarefaId: string,
-    dados: UpdateTarefaDto,
-    propagar: boolean = false,
-  ): Promise<Tarefa> {
-    return this.tarefaRepository.manager.transaction(
-      async (manager: EntityManager) => {
-        const tarefa = await manager
-          .createQueryBuilder(Tarefa, 'tarefa')
-          .leftJoinAndSelect('tarefa.subTarefas', 'subTarefas')
-          .leftJoinAndSelect('tarefa.dependencias', 'dependencias')
-          .where('tarefa.id = :id', { id: tarefaId })
-          .getOneOrFail();
-
-        const tarefaComponente = this.toTarefaComponente(tarefa);
-        const dadosAtualizados = {
-          ...dados,
-          prazo: dados.prazo ? new Date(dados.prazo) : undefined,
-        };
-        await tarefaComponente.atualizar(manager, dadosAtualizados, propagar);
-        return tarefa;
-      },
-    );
-  }
-
-  async create(dto: CreateTarefaDto): Promise<void> {
-    const tarefa = this.tarefaRepository.create({
-      ...dto,
-      autor: dto.autorId ? { id: dto.autorId } : undefined,
-      responsavel: dto.responsavelId ? { id: dto.responsavelId } : undefined,
-      tarefaPai: dto.tarefaPaiId ? { id: dto.tarefaPaiId } : undefined,
-      etiquetas: dto.etiquetas?.map((id: string) => ({ id })) || undefined,
-      dependencias:
-        dto.dependencias?.map((id: string) => ({ id })) || undefined,
-    });
-
-    await this.tarefaRepository.save(tarefa);
-  }
-
-  async findOne(id: string) {
-    const tarefa = await this.tarefaRepository.findOne({ where: { id } });
-    if (!tarefa) throw new NotFoundException('Tarefa não encontrada');
-    return tarefa;
-  }
-
-  async update(id: string, dto: UpdateTarefaDto) {
-    const tarefa = await this.findOne(id);
-    Object.assign(tarefa, dto);
     return this.tarefaRepository.save(tarefa);
   }
 
-  async remove(id: string) {
-    const tarefa = await this.findOne(id);
-    return this.tarefaRepository.remove(tarefa);
+  async adicionarSubtarefa(
+    tarefaPaiId: number,
+    dto: CreateTarefaFolhaDto,
+  ): Promise<Tarefa> {
+    const tarefaPai = await this.tarefaRepository.findOne({
+      where: { id: tarefaPaiId },
+      relations: ['subtarefas'],
+    });
+
+    if (!(tarefaPai instanceof TarefaComposta)) {
+      throw new BadRequestException('A tarefa pai deve ser composta');
+    }
+
+    const folha = new TarefaFolhaBuilder()
+      .comTitulo(dto.titulo)
+      .comSubTitulo(dto.subTitulo)
+      .comDescricao(dto.descricao)
+      .comStatus(dto.status)
+      .comPrioridade(dto.prioridade)
+      .comPontos(dto.pontos)
+      .comDataPrazo(dto.dataPrazo)
+      .comTempoEstimadoDias(dto.tempoEstimadoDias)
+      .build();
+
+    if (!(folha instanceof TarefaFolha)) {
+      throw new InternalServerErrorException('Erro ao construir tarefa folha');
+    }
+
+    folha.tarefaPai = tarefaPai as Tarefa;
+    return await this.tarefaRepository.save(folha);
+  }
+
+  async findTarefaComSubtarefas(id: number): Promise<Tarefa> {
+    const tarefa = await this.tarefaRepository.findOne({ where: { id } });
+
+    if (!tarefa) {
+      throw new NotFoundException(`Tarefa ${id} não encontrada`);
+    }
+
+    return this.tarefaRepository.findDescendantsTree(tarefa);
+  }
+
+  async removerTarefa(id: number): Promise<Tarefa> {
+    const tarefa = await this.tarefaRepository.findOneOrFail({
+      where: { id },
+    });
+
+    return await this.tarefaRepository.remove(tarefa);
+  }
+
+  async atualizarTarefa(
+    id: number,
+    updateTarefaDto: UpdateTarefaRequestDto,
+  ): Promise<Tarefa> {
+    const tarefa = await this.tarefaRepository.findOneOrFail({
+      where: { id },
+      relations: ['tarefaPai', 'subtarefas'],
+    });
+
+    Object.assign(tarefa, updateTarefaDto);
+
+    if (
+      updateTarefaDto.status === StatusTarefa.CONCLUIDA &&
+      !updateTarefaDto.dataConclusao
+    ) {
+      throw new BadRequestException(
+        'Data de conclusão é obrigatória quando o status é Concluída',
+      );
+    }
+
+    if (
+      (updateTarefaDto.status === StatusTarefa.EM_ANDAMENTO ||
+        updateTarefaDto.status === StatusTarefa.PENDENTE) &&
+      updateTarefaDto.dataConclusao
+    ) {
+      throw new BadRequestException(
+        'Não é permitido definir a data de conclusão para status "Em Andamento" ou "Pendente"',
+      );
+    }
+
+    await this.tarefaRepository.save(tarefa);
+
+    return tarefa;
+  }
+
+  // Todo: Refatorar
+  async fetchTarefas(paginationDto: PaginationDto) {
+    const allTrees = await this.tarefaRepository.findTrees();
+
+    const composedRoots = allTrees.filter(
+      (t): t is TarefaComposta => t instanceof TarefaComposta,
+    );
+
+    const { page, pageSize } = paginationDto;
+    const total = composedRoots.length;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const pageData = composedRoots.slice(start, end);
+
+    return new PaginationResponseDto<Tarefa>(pageData, total, page, pageSize);
   }
 }
