@@ -12,7 +12,10 @@ import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
 import {
   EstatisticaTarefaCompostaDto,
   EstatisticaTarefaFolhaDto,
-} from '../dto/responses/_index';
+  ClonarTarefaDto
+} from '../dto/_index';
+import { TarefaFolha } from './tarefa.folha.entity';
+import { TarefaComposta } from './tarefa.composta.entity';
 
 @Entity('tarefas')
 @TableInheritance({ column: { type: 'varchar', name: 'tipo' } })
@@ -51,6 +54,10 @@ export abstract class Tarefa {
   abstract getEstatistica():
     | EstatisticaTarefaFolhaDto
     | EstatisticaTarefaCompostaDto;
-  abstract cloneComModificacoes(mods: Partial<Tarefa>): Tarefa;
+
+  abstract cloneComModificacoes(
+    modificadores: ClonarTarefaDto,
+  ): TarefaFolha | TarefaComposta;
+
   abstract getProgresso(): number;
 }

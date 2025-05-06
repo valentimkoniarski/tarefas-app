@@ -1,6 +1,7 @@
 import { Exclude, Expose, Type } from 'class-transformer';
 import { PrioridadeTarefa } from 'src/core/enums/prioridade.tarefa.enum';
 import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
+import { EstatisticaGeraisDto } from './estatistica-gerais.dto';
 
 @Exclude()
 export class TarefaResponseDto {
@@ -37,4 +38,9 @@ export class TarefaResponseDto {
   @Expose()
   @Type(() => TarefaResponseDto)
   subtarefas?: TarefaResponseDto[];
+
+  // estatisticas
+  @Expose()
+  @Type(() => EstatisticaGeraisDto)
+  estatisticas?: EstatisticaGeraisDto;
 }

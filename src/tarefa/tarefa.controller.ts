@@ -15,11 +15,13 @@ import { TarefaService } from './tarefa.service';
 import { plainToInstance } from 'class-transformer';
 import { HttpResponse } from 'src/core/dto/http-response.dto';
 import {
+  ClonarTarefaDto,
   CreateTarefaCompostaDto,
   CreateTarefaFolhaDto,
   UpdateTarefaRequestDto,
-} from './dto/requests/_index';
-import { TarefaResponseDto } from './dto/responses/tarefa-response.dto';
+  EstatisticaGeraisDto,
+} from './dto/_index';
+import { TarefaResponseDto } from './dto/tarefa-response.dto';
 import { PaginationDto } from 'src/core/dto/_index';
 
 @Controller('tarefas')
@@ -48,6 +50,19 @@ export class TarefaController {
       excludeExtraneousValues: true,
     });
     return new HttpResponse('Tarefa criada com sucesso.', responseDto);
+  }
+
+  @Post('clonar/:origemId')
+  @HttpCode(HttpStatus.CREATED)
+  async clonarTarefa(
+    @Param('origemId', ParseIntPipe) origemId: number,
+    @Body() dto: ClonarTarefaDto,
+  ): Promise<HttpResponse<ClonarTarefaDto>> {
+    const tarefa = await this.tarefaService.clonarTarefa(origemId, dto);
+    const responseDto = plainToInstance(ClonarTarefaDto, tarefa, {
+      excludeExtraneousValues: true,
+    });
+    return new HttpResponse('Tarefa clonada com sucesso.', responseDto);
   }
 
   @Post(':id/subtarefas')
@@ -91,7 +106,18 @@ export class TarefaController {
       excludeExtraneousValues: true,
     });
 
-    return new HttpResponse('Vínculos encontrados com sucesso.', responseDto);
+    const estatisticas = plainToInstance(
+      EstatisticaGeraisDto,
+      tarefa.getEstatistica(),
+      {
+        excludeExtraneousValues: true,
+      },
+    );
+
+    return new HttpResponse('Vínculos encontrados com sucesso.', {
+      ...responseDto,
+      estatisticas,
+    });
   }
 
   @Get()

@@ -24,7 +24,8 @@ export class ProgressoTarefaBuilder {
       0,
     );
 
-    return Math.round(progressoTotal / total);
+    const progressoMedio = progressoTotal / total;
+    return parseFloat(progressoMedio.toFixed(2));
   }
 
   static calcular(tarefa: Tarefa): number {

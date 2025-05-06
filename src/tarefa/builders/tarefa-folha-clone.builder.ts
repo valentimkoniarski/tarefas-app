@@ -27,6 +27,11 @@ export class TarefaFolhaBuilder extends TarefaBuilder<TarefaFolha> {
     return this;
   }
 
+  comTarefaPai(tarefaPai: TarefaFolha): this {
+    this.tarefa.tarefaPai = tarefaPai;
+    return this;
+  }
+
   build(): TarefaFolha {
     return this.tarefa;
   }

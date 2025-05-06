@@ -1,5 +1,5 @@
 import { Exclude, Expose, Type } from 'class-transformer';
-import { CreateTarefaFolhaDto } from '../requests/create-tarefa-request.dto';
+import { CreateTarefaFolhaDto } from './create-tarefa-request.dto';
 import { Tarefa } from 'src/tarefa/entities/tarefa.entity';
 
 @Exclude()

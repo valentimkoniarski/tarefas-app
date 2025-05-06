@@ -10,8 +10,8 @@ import { Tarefa } from './entities/tarefa.entity';
 import {
   CreateTarefaCompostaDto,
   CreateTarefaFolhaDto,
-} from './dto/requests/create-tarefa-request.dto';
-import { UpdateTarefaRequestDto } from './dto/requests/update-tarefa-request.dto';
+} from './dto/create-tarefa-request.dto';
+import { UpdateTarefaRequestDto } from './dto/update-tarefa-request.dto';
 import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
 import { TarefaFolhaBuilder } from './builders/tarefa-folha-clone.builder';
 import { TarefaCompostaBuilder } from './builders/tarefa-composta-clone.builder';
@@ -19,6 +19,7 @@ import { TarefaComposta } from './entities/tarefa.composta.entity';
 import { TarefaFolha } from './entities/tarefa.folha.entity';
 import { PaginationDto } from 'src/core/dto/pagination.dto';
 import { PaginationResponseDto } from 'src/core/dto/pagination-response.dto';
+import { ClonarTarefaDto } from './dto/clonar-tarefa-request.dto';
 
 @Injectable()
 export class TarefaService {
@@ -86,6 +87,26 @@ export class TarefaService {
     return await this.tarefaRepository.save(folha);
   }
 
+  async clonarTarefa(origemId: number, dto: ClonarTarefaDto): Promise<Tarefa> {
+    const raiz = await this.tarefaRepository.findDescendantsTree(
+      await this.tarefaRepository.findOneOrFail({ where: { id: origemId } }),
+    );
+
+    if (!raiz) {
+      throw new NotFoundException(`Tarefa ${origemId} não encontrada`);
+    }
+
+    const modificacoes: ClonarTarefaDto = {
+      titulo: dto.titulo,
+      subTitulo: dto.subTitulo,
+      dataPrazo: dto.dataPrazo,
+      status: StatusTarefa.PENDENTE,
+    };
+
+    const clone = raiz.cloneComModificacoes(modificacoes);
+    return this.tarefaRepository.save(clone);
+  }
+
   async findTarefaComSubtarefas(id: number): Promise<Tarefa> {
     const tarefa = await this.tarefaRepository.findOne({ where: { id } });
 
@@ -93,7 +114,11 @@ export class TarefaService {
       throw new NotFoundException(`Tarefa ${id} não encontrada`);
     }
 
-    return this.tarefaRepository.findDescendantsTree(tarefa);
+    const tarefafind = (await this.tarefaRepository.findDescendantsTree(
+      tarefa,
+    )) as TarefaComposta;
+
+    return tarefafind;
   }
 
   async removerTarefa(id: number): Promise<Tarefa> {

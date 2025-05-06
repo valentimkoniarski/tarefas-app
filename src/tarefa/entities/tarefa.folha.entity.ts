@@ -1,10 +1,10 @@
 import { ChildEntity, Column } from 'typeorm';
 import { Tarefa } from './tarefa.entity';
-import { EstatisticaTarefaFolhaDto } from '../dto/responses/_index';
 import { PrioridadeTarefa } from 'src/core/enums/prioridade.tarefa.enum';
 import { Min } from 'class-validator';
 import { ProgressoTarefaBuilder } from '../builders/progresso-tarefa-clone.builder';
 import { TarefaFolhaBuilder } from '../builders/tarefa-folha-clone.builder';
+import { ClonarTarefaDto, EstatisticaTarefaFolhaDto } from '../dto/_index';
 @ChildEntity()
 export class TarefaFolha extends Tarefa {
   @Column({ nullable: true })
@@ -43,17 +43,18 @@ export class TarefaFolha extends Tarefa {
     return ProgressoTarefaBuilder.fromStatus(this.status);
   }
 
-  cloneComModificacoes(mods: Partial<TarefaFolha>): Tarefa {
+  cloneComModificacoes(mods: ClonarTarefaDto): TarefaFolha {
     const copia = new TarefaFolhaBuilder()
       .comTitulo(mods.titulo ?? this.titulo)
       .comSubTitulo(mods.subTitulo ?? this.subTitulo)
       .comStatus(mods.status ?? this.status)
       .comDataPrazo(mods.dataPrazo ?? this.dataPrazo)
-      .comConcluida(mods.concluida ?? this.concluida)
-      .comDescricao(mods.descricao ?? this.descricao)
-      .comPrioridade(mods.prioridade ?? this.prioridade)
-      .comPontos(mods.pontos ?? this.pontos)
-      .comTempoEstimadoDias(mods.tempoEstimadoDias ?? this.tempoEstimadoDias)
+      .comConcluida(this.concluida)
+      .comDescricao(this.descricao)
+      .comPrioridade(this.prioridade)
+      .comPontos(this.pontos)
+      .comTempoEstimadoDias(this.tempoEstimadoDias)
+      .comTarefaPai(this.tarefaPai as TarefaFolha)
       .build();
 
     return copia;

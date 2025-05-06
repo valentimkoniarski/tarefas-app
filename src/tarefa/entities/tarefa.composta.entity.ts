@@ -1,13 +1,14 @@
 import { ChildEntity, Column, TreeChildren } from 'typeorm';
 import { Tarefa } from './tarefa.entity';
-import { EstatisticaTarefaCompostaDto } from '../dto/responses/_index';
 import { Min } from 'class-validator';
 import { ProgressoTarefaBuilder } from '../builders/progresso-tarefa-clone.builder';
 import { TarefaCompostaBuilder } from '../builders/tarefa-composta-clone.builder';
+import { TarefaFolha } from './tarefa.folha.entity';
+import { ClonarTarefaDto, EstatisticaTarefaCompostaDto } from '../dto/_index';
 
 @ChildEntity()
 export class TarefaComposta extends Tarefa {
-  @TreeChildren()
+  @TreeChildren({ cascade: true })
   subtarefas?: Tarefa[];
 
   @Column({ type: 'int', nullable: true })
@@ -38,17 +39,22 @@ export class TarefaComposta extends Tarefa {
     });
   }
 
-  cloneComModificacoes(mods: Partial<TarefaComposta>): Tarefa {
-    const copia = new TarefaCompostaBuilder()
+  cloneComModificacoes(mods: ClonarTarefaDto): TarefaComposta {
+    const builder = new TarefaCompostaBuilder()
       .comTitulo(mods.titulo ?? this.titulo)
       .comSubTitulo(mods.subTitulo ?? this.subTitulo)
       .comStatus(mods.status ?? this.status)
       .comDataPrazo(mods.dataPrazo ?? this.dataPrazo)
-      .comConcluida(mods.concluida ?? this.concluida)
-      //.comSubtarefas(mods.subtarefas ?? this.subtarefas ?? [])
-      .comLimiteSubtarefas(mods.limiteSubtarefas ?? this.limiteSubtarefas ?? 0)
-      .build();
+      .comConcluida(this.concluida)
+      .comLimiteSubtarefas(this.limiteSubtarefas ?? 0)
+      .comSubtarefas(
+        (this.subtarefas ?? []).map((subtarefa: Tarefa) => {
+          const novaSubtarefa = new TarefaFolha();
+          Object.assign(novaSubtarefa, { ...subtarefa, id: undefined });
+          return novaSubtarefa;
+        }),
+      );
 
-    return copia;
+    return builder.build();
   }
 }
