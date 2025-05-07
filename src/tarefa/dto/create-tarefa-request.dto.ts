@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 import { PrioridadeTarefa } from 'src/core/enums/prioridade.tarefa.enum';
 import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
-import { TipoCalculoPontosFolha } from '../factories/pontos-folha.strategy.factory';
+import { TipoCalculoPontosFolha } from 'src/core/enums/tipo-calculo-pontos-folha.enum';
 
 export class CreateTarefaFolhaDto {
   @IsString()

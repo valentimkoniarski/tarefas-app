@@ -1,182 +1,216 @@
+// tarefa.service.ts
 import {
-  BadRequestException,
   Injectable,
-  InternalServerErrorException,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TreeRepository } from 'typeorm';
-import { Tarefa } from './entities/tarefa.entity';
+import { PaginationDto } from 'src/core/dto/_index';
 import {
-  CreateTarefaCompostaDto,
+  ClonarTarefaDto,
+  UpdateTarefaRequestDto,
   CreateTarefaFolhaDto,
-} from './dto/create-tarefa-request.dto';
-import { UpdateTarefaRequestDto } from './dto/update-tarefa-request.dto';
+  CreateTarefaCompostaDto,
+} from './dto/_index';
+import { TipoTarefa } from 'src/core/enums/tipo-tarefa.enum';
 import { StatusTarefa } from 'src/core/enums/status.tarefa.enum';
-import { TarefaFolhaBuilder } from './builders/tarefa-folha-clone.builder';
-import { TarefaCompostaBuilder } from './builders/tarefa-composta-clone.builder';
-import { TarefaComposta } from './entities/tarefa.composta.entity';
-import { TarefaFolha } from './entities/tarefa.folha.entity';
-import { PaginationDto } from 'src/core/dto/pagination.dto';
-import { PaginationResponseDto } from 'src/core/dto/pagination-response.dto';
-import { ClonarTarefaDto } from './dto/clonar-tarefa-request.dto';
-
+import { Tarefa } from './tarefa.entitiy';
 @Injectable()
 export class TarefaService {
   constructor(
     @InjectRepository(Tarefa)
-    private readonly tarefaRepository: TreeRepository<Tarefa>,
+    private readonly repo: TreeRepository<Tarefa>,
   ) {}
 
   async criarTarefaSimples(dto: CreateTarefaFolhaDto): Promise<Tarefa> {
-    const tarefaFolha = new TarefaFolhaBuilder()
-      .comTitulo(dto.titulo)
-      .comSubTitulo(dto.subTitulo)
-      .comDescricao(dto.descricao)
-      .comStatus(dto.status)
-      .comPrioridade(dto.prioridade)
-      .comPontos(dto.pontos)
-      .comDataPrazo(dto.dataPrazo)
-      .comTempoEstimadoDias(dto.tempoEstimadoDias)
-      .comTipoCalculoPontos(dto.tipoCalculoPontos)
-      .build();
-
-    return this.tarefaRepository.save(tarefaFolha);
+    const t = new Tarefa();
+    Object.assign(t, {
+      titulo: dto.titulo,
+      subTitulo: dto.subTitulo,
+      status: dto.status,
+      tipo: TipoTarefa.FOLHA,
+      descricao: dto.descricao,
+      prioridade: dto.prioridade,
+      pontos: dto.pontos,
+      dataPrazo: dto.dataPrazo,
+      tempoEstimadoDias: dto.tempoEstimadoDias,
+      tipoCalculoPontos: dto.tipoCalculoPontos,
+    });
+    return this.repo.save(t);
   }
 
-  async criarTarefaComposta(
-    dto: CreateTarefaCompostaDto,
-  ): Promise<TarefaComposta> {
-    const tarefa = new TarefaCompostaBuilder()
-      .comTitulo(dto.titulo)
-      .comSubTitulo(dto.subTitulo)
-      .comDataPrazo(dto.dataPrazo ? new Date(dto.dataPrazo) : undefined)
-      .build();
-
-    return this.tarefaRepository.save(tarefa);
+  async criarTarefaComposta(dto: CreateTarefaCompostaDto): Promise<Tarefa> {
+    const t = new Tarefa();
+    Object.assign(t, {
+      titulo: dto.titulo,
+      subTitulo: dto.subTitulo,
+      tipo: TipoTarefa.COMPOSTA,
+      dataPrazo: dto.dataPrazo ? new Date(dto.dataPrazo) : undefined,
+      limiteSubtarefas: dto.limiteSubtarefas,
+      subtarefas: [],
+    });
+    return this.repo.save(t);
   }
 
   async adicionarSubtarefa(
-    tarefaPaiId: number,
+    paiId: number,
     dto: CreateTarefaFolhaDto,
   ): Promise<Tarefa> {
-    const tarefaPai = await this.tarefaRepository.findOne({
-      where: { id: tarefaPaiId },
+    const pai = await this.repo.findOne({
+      where: { id: paiId },
       relations: ['subtarefas'],
     });
-
-    if (!(tarefaPai instanceof TarefaComposta)) {
-      throw new BadRequestException('A tarefa pai deve ser composta');
+    if (!pai || pai.tipo !== TipoTarefa.COMPOSTA) {
+      throw new BadRequestException('Só pode adicionar em composta');
     }
-
-    const folha = new TarefaFolhaBuilder()
-      .comTitulo(dto.titulo)
-      .comSubTitulo(dto.subTitulo)
-      .comDescricao(dto.descricao)
-      .comStatus(dto.status)
-      .comPrioridade(dto.prioridade)
-      .comPontos(dto.pontos)
-      .comDataPrazo(dto.dataPrazo)
-      .comTempoEstimadoDias(dto.tempoEstimadoDias)
-      .build();
-
-    if (!(folha instanceof TarefaFolha)) {
-      throw new InternalServerErrorException('Erro ao construir tarefa folha');
-    }
-
-    folha.tarefaPai = tarefaPai as Tarefa;
-    return await this.tarefaRepository.save(folha);
+    const sub = new Tarefa();
+    Object.assign(sub, {
+      titulo: dto.titulo,
+      subTitulo: dto.subTitulo,
+      status: dto.status,
+      tipo: TipoTarefa.FOLHA,
+      descricao: dto.descricao,
+      prioridade: dto.prioridade,
+      pontos: dto.pontos,
+      dataPrazo: dto.dataPrazo,
+      tempoEstimadoDias: dto.tempoEstimadoDias,
+      tipoCalculoPontos: dto.tipoCalculoPontos,
+      tarefaPai: pai,
+    });
+    return this.repo.save(sub);
   }
 
   async iniciarTarefa(id: number): Promise<Tarefa> {
-    const tarefa = await this.tarefaRepository.findOneOrFail({
-      where: { id },
-      relations: ['tarefaPai', 'subtarefas', 'etapaSequencial'],
-    });
-    tarefa.iniciar();
-    return this.tarefaRepository.save(tarefa);
-  }
-
-  async concluirTarefa(id: number): Promise<Tarefa> {
-    const tarefa = await this.tarefaRepository.findOneOrFail({
+    const t = await this.repo.findOneOrFail({
       where: { id },
       relations: ['subtarefas', 'etapaSequencial'],
     });
-    tarefa.concluir();
-    return this.tarefaRepository.save(tarefa);
+    if (t.tipo === TipoTarefa.FOLHA) {
+      if (t.status !== StatusTarefa.PENDENTE)
+        throw new Error('não pode iniciar');
+      t.status = StatusTarefa.EM_ANDAMENTO;
+    } else {
+      // composta ou pipeline: apenas marca EM_ANDAMENTO
+      t.status = StatusTarefa.EM_ANDAMENTO;
+    }
+    return this.repo.save(t);
+  }
+
+  async concluirTarefa(id: number): Promise<Tarefa> {
+    const t = await this.repo.findOneOrFail({
+      where: { id },
+      relations: ['subtarefas', 'etapaSequencial'],
+    });
+    if (t.tipo === TipoTarefa.FOLHA) {
+      if (t.status !== StatusTarefa.EM_ANDAMENTO)
+        throw new Error('só conclui em andamento');
+      t.status = StatusTarefa.CONCLUIDA;
+      t.dataConclusao = new Date();
+      t.concluida = true;
+    } else if (t.tipo === TipoTarefa.COMPOSTA) {
+      const subs = t.subtarefas || [];
+      if (subs.some((s) => s.status !== StatusTarefa.CONCLUIDA)) {
+        throw new Error('todas subtarefas devem estar concluídas');
+      }
+      t.status = StatusTarefa.CONCLUIDA;
+      t.concluida = true;
+    } else {
+      // pipeline: delegue a cada etapa...
+      throw new Error('concluir pipeline não implementado');
+    }
+    return this.repo.save(t);
   }
 
   async clonarTarefa(origemId: number, dto: ClonarTarefaDto): Promise<Tarefa> {
-    const raiz = await this.tarefaRepository.findDescendantsTree(
-      await this.tarefaRepository.findOneOrFail({ where: { id: origemId } }),
+    const raiz = await this.repo.findDescendantsTree(
+      await this.repo.findOneOrFail({ where: { id: origemId } }),
     );
+    if (!raiz) throw new NotFoundException(`Tarefa ${origemId} não existe`);
 
-    if (!raiz) {
-      throw new NotFoundException(`Tarefa ${origemId} não encontrada`);
+    const copia = this.cloneRec(raiz, dto);
+    return this.repo.save(copia);
+  }
+
+  private cloneRec(orig: Tarefa, mods: ClonarTarefaDto): Tarefa {
+    const t = new Tarefa();
+    Object.assign(t, {
+      titulo: mods.titulo ?? orig.titulo,
+      subTitulo: mods.subTitulo ?? orig.subTitulo,
+      status: mods.status ?? orig.status,
+      tipo: orig.tipo,
+      dataPrazo: mods.dataPrazo ?? orig.dataPrazo,
+      descricao: orig.descricao,
+      prioridade: orig.prioridade,
+      pontos: orig.pontos,
+      tempoEstimadoDias: orig.tempoEstimadoDias,
+      tipoCalculoPontos: orig.tipoCalculoPontos,
+      limiteSubtarefas: orig.limiteSubtarefas,
+      limiteEtapas: orig.limiteEtapas,
+      tarefaPai: undefined,
+    });
+    // filhos
+    if (orig.subtarefas) {
+      t.subtarefas = orig.subtarefas.map((ch) => {
+        const c = this.cloneRec(ch, {
+          titulo: '',
+          status: StatusTarefa.PENDENTE
+        });
+        c.tarefaPai = t;
+        return c;
+      });
     }
-
-    const modificacoes: ClonarTarefaDto = {
-      titulo: dto.titulo,
-      subTitulo: dto.subTitulo,
-      dataPrazo: dto.dataPrazo,
-      status: StatusTarefa.PENDENTE,
-    };
-
-    const clone = raiz.cloneComModificacoes(modificacoes);
-    return this.tarefaRepository.save(clone);
+    if (orig.etapaSequencial) {
+      t.etapaSequencial = orig.etapaSequencial.map((ch) => {
+        const c = this.cloneRec(ch, {
+          titulo: '',
+          status: StatusTarefa.PENDENTE
+        });
+        c.tarefaPai = t;
+        return c;
+      });
+    }
+    return t;
   }
 
   async findTarefaComSubtarefas(id: number): Promise<Tarefa> {
-    const tarefa = await this.tarefaRepository.findOne({ where: { id } });
-
-    if (!tarefa) {
-      throw new NotFoundException(`Tarefa ${id} não encontrada`);
-    }
-
-    const tarefafind = (await this.tarefaRepository.findDescendantsTree(
-      tarefa,
-    )) as TarefaComposta;
-
-    return tarefafind;
+    const t = await this.repo.findOne({ where: { id } });
+    if (!t) throw new NotFoundException(`Tarefa ${id} não existe`);
+    return this.repo.findDescendantsTree(t);
   }
 
-  async removerTarefa(id: number): Promise<Tarefa> {
-    const tarefa = await this.tarefaRepository.findOneOrFail({
+  async removerTarefa(id: number): Promise<void> {
+    const t = await this.repo.findOneOrFail({ where: { id } });
+    await this.repo.remove(t);
+  }
+
+  async atualizarTarefa(
+    id: number,
+    dto: UpdateTarefaRequestDto,
+  ): Promise<Tarefa> {
+    const t = await this.repo.findOneOrFail({
       where: { id },
+      relations: ['subtarefas', 'etapaSequencial'],
     });
-
-    return await this.tarefaRepository.remove(tarefa);
-  }
-
-  async atualizarTarefa(id: number, dto: UpdateTarefaRequestDto): Promise<Tarefa> {
-    const tarefa = await this.tarefaRepository.findOneOrFail({
-      where: { id },
-      relations: ['tarefaPai', 'subtarefas', 'etapaSequencial'],
-    });
-    if (dto.status === StatusTarefa.EM_ANDAMENTO) {
-      tarefa.iniciar();
-    } else if (dto.status === StatusTarefa.CONCLUIDA) {
-      tarefa.concluir();
-    } else {
-      Object.assign(tarefa, dto);
+    Object.assign(t, dto);
+    // se mudou status, trate dataConclusao
+    if (dto.status === StatusTarefa.CONCLUIDA && t.tipo === TipoTarefa.FOLHA) {
+      t.dataConclusao = new Date();
+      t.concluida = true;
     }
-    return this.tarefaRepository.save(tarefa);
+    return this.repo.save(t);
   }
 
-  // Todo: Refatorar
-  async fetchTarefas(paginationDto: PaginationDto) {
-    const allTrees = await this.tarefaRepository.findTrees();
-
-    const composedRoots = allTrees.filter(
-      (t): t is TarefaComposta => t instanceof TarefaComposta,
-    );
-
-    const { page, pageSize } = paginationDto;
-    const total = composedRoots.length;
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    const pageData = composedRoots.slice(start, end);
-
-    return new PaginationResponseDto<Tarefa>(pageData, total, page, pageSize);
+  async fetchTarefas(p: PaginationDto) {
+    const all = await this.repo.findTrees();
+    const roots = all.filter((t) => t.tipo === TipoTarefa.COMPOSTA);
+    const total = roots.length;
+    const start = (p.page - 1) * p.pageSize;
+    return {
+      data: roots.slice(start, start + p.pageSize),
+      total,
+      page: p.page,
+      pageSize: p.pageSize,
+    };
   }
 }

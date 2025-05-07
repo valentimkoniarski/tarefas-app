@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TarefaModule } from './tarefa/tarefa.module';
 
-import { Tarefa } from './tarefa/tarefa.entity';
 import { DataSource } from 'typeorm';
+import { Tarefa } from './tarefa/tarefa.entitiy';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
