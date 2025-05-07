@@ -34,7 +34,6 @@ function extractMessages(error: ValidationError): string[] {
     });
   }
 
-  // Verifica filhos recursivamente
   if (error.children && error.children.length > 0) {
     return error.children.flatMap((child) => extractMessages(child));
   }
