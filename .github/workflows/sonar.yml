@@ -32,6 +32,9 @@ jobs:
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         with:
-          projectBaseDir: .
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            projectBaseDir: .
+            args: >
+              -Dsonar.organization=valentimkoniarski_tarefas-app
+              -Dsonar.projectKey=tarefas-app
+          env:
+            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
